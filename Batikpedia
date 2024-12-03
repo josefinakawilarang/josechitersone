@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batikpedia: Recognize Batik Patterns</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #upload-container {
+            margin: 20px 0;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+        #image-canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Batikpedia: Recognize Batik Patterns</h1>
+    <div id="upload-container">
+        <input type="file" id="file-upload" accept="image/*">
+    </div>
+    <canvas id="image-canvas"></canvas>
+    <div id="result">Upload an image to identify the batik pattern.</div>
+
+    <script>
+        let model;
+
+        // Load the TensorFlow.js model
+        async function loadModel() {
+            // Load model from the hosted URL
+            model = await tf.loadLayersModel('YOUR_MODEL_URL/model.json'); // Update with the correct URL
+            console.log('Model loaded successfully');
+        }
+
+        // Handle image upload
+        const fileUpload = document.getElementById('file-upload');
+        const canvas = document.getElementById('image-canvas');
+        const resultDiv = document.getElementById('result');
+
+        fileUpload.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const img = new Image();
+                const reader = new FileReader();
+
+                reader.onload = async (e) => {
+                    img.src = e.target.result;
+                    img.onload = async () => {
+                        // Prepare canvas for processing
+                        canvas.width = 224;
+                        canvas.height = 224;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, 224, 224);
+
+                        // Preprocess the image (resize, normalize, etc.)
+                        const tensor = tf.browser.fromPixels(canvas)
+                            .resizeNearestNeighbor([224, 224]) // Adjust to your model's input size
+                            .toFloat()
+                            .expandDims(0)
+                            .div(tf.scalar(255));
+
+                        // Make prediction
+                        const predictions = await model.predict(tensor).data();
+                        const labels = [
+                            "Aceh - Pintu Aceh", "Bali - Barong", "Bali - Merak", "DKI Jakarta - Ondel-ondel", 
+                            "Jawa Barat - Mega Mendung", "Jawa Timur - Pring", "Jawa Tengah - Parang", 
+                            "Yogyakarta - Kawung", "Yogyakarta - Parang", "Kalimantan - Dayak", "Lampung - Gajah", 
+                            "Madura - Mataketeran", "Madura - Pala", "NTB - Lumbung", "Papua - Asmat", "Papua - Cendrawasih", 
+                            "Papua - Tifa", "Sulawesi Selatan - Lontara", "Sumatera Barat - Rumah Minang", 
+                            "Sumatera Utara - Boraspati", "Jawa Tengah - Pekalongan", "Jawa Tengah - Sidoluhur", 
+                            "Jawa Tengah - Sidomukti", "Jawa Tengah - Sogan", "Pesisiran - Lasem", "Tambal", 
+                            "Jawa Barat - Ciamis", "Jawa Barat - Garutan", "Madura - Gentongan", 
+                            "Jawa Tengah - Sekar Jagad", "Yogyakarta - Ceplok"
+                        ]; // These are the labels from metadata.json
+
+                        // Get the index of the highest prediction
+                        const bestPredictionIndex = predictions.indexOf(Math.max(...predictions));
+                        resultDiv.innerText = `Prediction: ${labels[bestPredictionIndex]}`;
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Initialize the page
+        loadModel();
+    </script>
+</body>
+</html>
